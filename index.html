@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Favorite Yu-Gi-Oh! Cards</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        title: ['Cinzel', 'serif'],
+                        body: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        ygo: {
+                            dark: '#0f172a',
+                            card: '#1e293b',
+                            gold: '#fbbf24',
+                            accent: '#3b82f6'
+                        }
+                    },
+                    aspectRatio: {
+                        card: '59 / 86',
+                    }
+                }
+            }
+        };
+    </script>
+
+    <style>
+        body {
+            background-color: #020617;
+            background-image:
+                radial-gradient(at 0% 0%, hsla(253, 16%, 7%, 1) 0, transparent 50%),
+                radial-gradient(at 50% 0%, hsla(225, 39%, 30%, 0.2) 0, transparent 50%),
+                radial-gradient(at 100% 0%, hsla(339, 49%, 30%, 0.2) 0, transparent 50%);
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+
+        .glow-border {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0);
+            transition: all 0.3s ease;
+        }
+
+        .glow-border:hover {
+            box-shadow: 0 0 25px rgba(59, 130, 246, 0.4);
+            border-color: #3b82f6;
+            transform: translateY(-5px);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        #capture-area {
+            background-color: #020617;
+            position: relative;
+        }
+
+        #capture-area::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(30, 41, 59, 0.3) 0%, rgba(15, 23, 42, 0.8) 100%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        #capture-area > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .gradient-text {
+            color: transparent;
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .exporting .gradient-text {
+            background: none !important;
+            color: #fbbf24 !important;
+            -webkit-text-fill-color: #fbbf24 !important;
+        }
+
+        .exporting .gradient-text-light {
+            background: none !important;
+            color: #e5e7eb !important;
+            -webkit-text-fill-color: #e5e7eb !important;
+        }
+    </style>
+</head>
+<body class="font-body text-gray-200 antialiased p-4 md:p-8 flex flex-col items-center">
+
+    <div class="mb-8 flex flex-wrap gap-4 justify-center" data-html2canvas-ignore>
+        <button id="download-btn" onclick="downloadImage()" class="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg shadow-blue-500/30 transition-all transform hover:scale-105">
+            <i data-lucide="download"></i>
+            Download my Infographic
+        </button>
+
+        <button onclick="resetAll()" class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white px-6 py-3 rounded-full font-semibold transition-all">
+            <i data-lucide="refresh-cw"></i>
+            Reset
+        </button>
+    </div>
+
+    <div id="capture-area" class="w-full max-w-5xl rounded-3xl overflow-hidden shadow-2xl border border-slate-800 p-8 md:p-12">
+        <div class="text-center mb-12">
+            <h1 class="gradient-text font-title text-4xl md:text-6xl font-black bg-gradient-to-r from-ygo-gold via-yellow-200 to-ygo-gold drop-shadow-sm mb-4 tracking-wider uppercase">
+                My Favorite Cards
+            </h1>
+            <p class="text-slate-400 text-lg md:text-xl font-light tracking-widest uppercase">
+                Yu-Gi-Oh! Challenge
+            </p>
+            <div class="h-1 w-32 bg-gradient-to-r from-transparent via-ygo-gold to-transparent mx-auto mt-6 opacity-50"></div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10" id="card-grid"></div>
+
+        <div class="mt-12 text-center text-slate-500 text-sm font-title tracking-widest">
+            Duel Template crafted by <span class="text-ygo-gold font-bold">Kazuyoshi</span>
+        </div>
+    </div>
+
+    <script>
+        const categories = [
+            { id: 'deck', title: 'Favorite Deck', color: 'from-purple-500 to-indigo-500' },
+            { id: 'vanilla', title: 'Normal Monster', color: 'from-amber-100 to-yellow-400' },
+            { id: 'effect', title: 'Effect Monster', color: 'from-orange-400 to-red-500' },
+            { id: 'ritual', title: 'Ritual Monster', color: 'from-blue-400 to-cyan-400' },
+            { id: 'fusion', title: 'Fusion Monster', color: 'from-purple-600 to-fuchsia-600' },
+            { id: 'synchro', title: 'Synchro Monster', color: 'from-slate-100 to-gray-400' },
+            { id: 'xyz', title: 'Xyz Monster', color: 'from-gray-800 to-black' },
+            { id: 'pendulum', title: 'Pendulum Monster', color: 'from-emerald-400 to-teal-500' },
+            { id: 'link', title: 'Link Monster', color: 'from-blue-600 to-blue-800' }
+        ];
+
+        const gridContainer = document.getElementById('card-grid');
+
+        categories.forEach(cat => {
+            const cardHTML = `
+                <div class="flex flex-col items-center group relative">
+                    <div class="relative z-10 -mb-4 bg-slate-900 border border-slate-700 px-6 py-2 rounded-full shadow-lg">
+                        <h2 class="gradient-text gradient-text-light font-title font-bold text-sm md:text-base bg-gradient-to-r ${cat.color} tracking-wider uppercase text-center">
+                            ${cat.title}
+                        </h2>
+                    </div>
+
+                    <label for="upload-${cat.id}" class="w-full relative aspect-card bg-slate-800/80 backdrop-blur-sm rounded-2xl border-2 border-slate-700/50 glow-border cursor-pointer flex flex-col items-center justify-center overflow-hidden z-0">
+                        <input type="file" id="upload-${cat.id}" accept="image/*" onchange="previewImage(event, 'img-${cat.id}', 'placeholder-${cat.id}')">
+
+                        <div id="placeholder-${cat.id}" class="flex flex-col items-center justify-center text-slate-500 group-hover:text-blue-400 transition-colors p-6 text-center">
+                            <i data-lucide="plus-circle" class="w-12 h-12 mb-3 opacity-50 group-hover:opacity-100 transition-opacity"></i>
+                            <span class="text-sm font-medium">Click to add an image</span>
+                        </div>
+
+                        <img id="img-${cat.id}" src="" alt="${cat.title}" class="absolute inset-0 w-full h-full object-cover hidden rounded-xl p-1" />
+
+                        <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span class="bg-slate-900/90 text-white px-4 py-2 rounded-lg text-sm font-semibold border border-slate-700 flex items-center gap-2">
+                                <i data-lucide="image" class="w-4 h-4"></i> Edit
+                            </span>
+                        </div>
+                    </label>
+                </div>
+            `;
+            gridContainer.insertAdjacentHTML('beforeend', cardHTML);
+        });
+
+        function refreshIcons() {
+            lucide.createIcons();
+        }
+
+        function previewImage(event, imgId, placeholderId) {
+            const input = event.target;
+
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    const imgElement = document.getElementById(imgId);
+                    const placeholderElement = document.getElementById(placeholderId);
+
+                    imgElement.src = e.target.result;
+                    imgElement.classList.remove('hidden');
+                    placeholderElement.classList.add('hidden');
+                };
+
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        async function waitForVisibleImages(container) {
+            const images = Array.from(container.querySelectorAll('img'))
+                .filter(img => img.src && !img.classList.contains('hidden'));
+
+            await Promise.all(
+                images.map(img => {
+                    if (img.complete && img.naturalWidth > 0) {
+                        return Promise.resolve();
+                    }
+
+                    return new Promise(resolve => {
+                        const done = () => resolve();
+                        img.onload = done;
+                        img.onerror = done;
+                    });
+                })
+            );
+        }
+
+        async function downloadImage() {
+            const element = document.getElementById('capture-area');
+            const button = document.getElementById('download-btn');
+            const originalText = button.innerHTML;
+
+            try {
+                button.innerHTML = '<i data-lucide="loader" class="animate-spin"></i> Generating...';
+                refreshIcons();
+
+                if (document.fonts && document.fonts.ready) {
+                    await document.fonts.ready;
+                }
+
+                await waitForVisibleImages(element);
+
+                element.classList.add('exporting');
+
+                await new Promise(resolve => setTimeout(resolve, 120));
+
+                const canvas = await html2canvas(element, {
+                    scale: 2,
+                    backgroundColor: '#020617',
+                    useCORS: true,
+                    logging: false,
+                    foreignObjectRendering: false
+                });
+
+                element.classList.remove('exporting');
+
+                const link = document.createElement('a');
+                link.download = 'My-Favorite-YGO-Cards.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+
+                button.innerHTML = originalText;
+                refreshIcons();
+            } catch (err) {
+                element.classList.remove('exporting');
+                console.error('Error during capture:', err);
+                alert('An error occurred while generating the image.');
+                button.innerHTML = originalText;
+                refreshIcons();
+            }
+        }
+
+        function resetAll() {
+            if (confirm('Do you really want to remove all your cards?')) {
+                categories.forEach(cat => {
+                    const imgElement = document.getElementById(`img-${cat.id}`);
+                    const placeholderElement = document.getElementById(`placeholder-${cat.id}`);
+                    const input = document.getElementById(`upload-${cat.id}`);
+
+                    imgElement.src = '';
+                    imgElement.classList.add('hidden');
+                    placeholderElement.classList.remove('hidden');
+                    input.value = '';
+                });
+            }
+        }
+
+        refreshIcons();
+    </script>
+</body>
+</html>
