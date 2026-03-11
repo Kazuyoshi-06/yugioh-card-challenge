@@ -5,6 +5,7 @@ const API_MAX_RETRIES = 2;
 const API_RETRY_DELAY_MS = 600;
 const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_UPLOAD_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const EXPORT_IMAGE_PROXY_BASE = "https://images.weserv.nl/?url=";
 
 const categories = [
     {
@@ -352,6 +353,74 @@ function setImageSourceWithFallback(imgElement, urls) {
     imgElement.dataset.fallbackUrls = JSON.stringify(urls.slice(1));
     imgElement.src = urls[0];
     return true;
+}
+
+function toExportSafeImageUrl(url) {
+    if (typeof url !== "string") return "";
+
+    const trimmed = url.trim();
+    if (!trimmed) return "";
+    if (trimmed.startsWith("data:") || trimmed.startsWith("blob:")) return trimmed;
+
+    const normalized = normalizeExternalImageUrl(trimmed);
+    if (!normalized) return "";
+
+    try {
+        const parsed = new URL(normalized, window.location.href);
+        if (parsed.origin === window.location.origin) {
+            return normalized;
+        }
+    } catch {
+        return normalized;
+    }
+
+    return `${EXPORT_IMAGE_PROXY_BASE}${encodeURIComponent(normalized)}`;
+}
+
+async function prepareImagesForExport(container) {
+    const visibleImages = Array.from(container.querySelectorAll("img"))
+        .filter(img => img.src && !img.classList.contains("hidden"));
+
+    const originalStates = visibleImages.map(img => ({
+        img,
+        src: img.src,
+        crossorigin: img.getAttribute("crossorigin")
+    }));
+
+    const loadTasks = [];
+
+    originalStates.forEach(state => {
+        const exportSafeSrc = toExportSafeImageUrl(state.src);
+
+        if (!exportSafeSrc || exportSafeSrc === state.src) {
+            return;
+        }
+
+        state.img.setAttribute("crossorigin", "anonymous");
+        state.img.src = exportSafeSrc;
+
+        loadTasks.push(new Promise(resolve => {
+            const done = () => resolve();
+            state.img.addEventListener("load", done, { once: true });
+            state.img.addEventListener("error", done, { once: true });
+        }));
+    });
+
+    if (loadTasks.length > 0) {
+        await Promise.all(loadTasks);
+    }
+
+    return () => {
+        originalStates.forEach(state => {
+            state.img.src = state.src;
+
+            if (state.crossorigin === null) {
+                state.img.removeAttribute("crossorigin");
+            } else {
+                state.img.setAttribute("crossorigin", state.crossorigin);
+            }
+        });
+    };
 }
 
 function showStatus(message, kind = "info") {
@@ -714,6 +783,7 @@ async function downloadImage() {
     const element = document.getElementById("capture-area");
     const button = document.getElementById("download-btn");
     const originalText = button.innerHTML;
+    let restoreImagesAfterExport = null;
 
     try {
         setActionButtonsDisabled(true);
@@ -725,6 +795,7 @@ async function downloadImage() {
         }
 
         await waitForVisibleImages(element);
+        restoreImagesAfterExport = await prepareImagesForExport(element);
 
         element.classList.add("exporting");
 
@@ -752,6 +823,10 @@ async function downloadImage() {
         console.error("Error during capture:", error);
         alert("An error occurred while generating the image.");
     } finally {
+        if (typeof restoreImagesAfterExport === "function") {
+            restoreImagesAfterExport();
+        }
+
         isExportingImage = false;
         setActionButtonsDisabled(false);
         button.innerHTML = originalText;
