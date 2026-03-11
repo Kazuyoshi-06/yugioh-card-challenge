@@ -1,0 +1,16 @@
+{
+  "name": "yugioh-card-challenge",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./tailwind-input.css -o ./tailwind.css --minify",
+    "watch:css": "tailwindcss -i ./tailwind-input.css -o ./tailwind.css --watch",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17"
+  }
+}
