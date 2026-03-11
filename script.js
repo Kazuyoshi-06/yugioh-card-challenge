@@ -151,6 +151,7 @@ let categoryPools = {};
 let isLoadingPools = false;
 let isRandomizing = false;
 let isExportingImage = false;
+let hasShownImageLoadWarning = false;
 
 const gridContainer = document.getElementById("card-grid");
 const statusBanner = document.getElementById("status-banner");
@@ -237,6 +238,7 @@ function initEventListeners() {
     categories.forEach(cat => {
         const input = document.getElementById(`upload-${cat.id}`);
         const slot = document.getElementById(`slot-${cat.id}`);
+        const img = document.getElementById(`img-${cat.id}`);
 
         if (!input) return;
         input.addEventListener("change", event => previewImage(event, cat.id));
@@ -246,6 +248,30 @@ function initEventListeners() {
                 if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
                     input.click();
+                }
+            });
+        }
+
+        if (img) {
+            img.addEventListener("error", () => {
+                let fallbackUrls = [];
+
+                try {
+                    fallbackUrls = JSON.parse(img.dataset.fallbackUrls || "[]");
+                } catch {
+                    fallbackUrls = [];
+                }
+
+                if (fallbackUrls.length > 0) {
+                    const [nextUrl, ...remaining] = fallbackUrls;
+                    img.dataset.fallbackUrls = JSON.stringify(remaining);
+                    img.src = nextUrl;
+                    return;
+                }
+
+                if (!hasShownImageLoadWarning) {
+                    showStatus("Some remote card images could not be loaded. Try Duel Roulette again.", "warning");
+                    hasShownImageLoadWarning = true;
                 }
             });
         }
@@ -284,6 +310,48 @@ function validateUploadFile(file) {
     }
 
     return { valid: true };
+}
+
+function normalizeExternalImageUrl(url) {
+    if (typeof url !== "string") return null;
+
+    const trimmed = url.trim();
+    if (!trimmed) return null;
+
+    if (trimmed.startsWith("http://")) {
+        return `https://${trimmed.slice(7)}`;
+    }
+
+    if (trimmed.startsWith("//")) {
+        return `https:${trimmed}`;
+    }
+
+    return trimmed;
+}
+
+function getCardImageCandidates(card) {
+    if (!card || !Array.isArray(card.card_images)) return [];
+
+    const candidates = [];
+
+    card.card_images.forEach(imageSet => {
+        ["image_url", "image_url_small", "image_url_cropped"].forEach(key => {
+            const normalized = normalizeExternalImageUrl(imageSet?.[key]);
+            if (normalized && !candidates.includes(normalized)) {
+                candidates.push(normalized);
+            }
+        });
+    });
+
+    return candidates;
+}
+
+function setImageSourceWithFallback(imgElement, urls) {
+    if (!imgElement || !Array.isArray(urls) || !urls.length) return false;
+
+    imgElement.dataset.fallbackUrls = JSON.stringify(urls.slice(1));
+    imgElement.src = urls[0];
+    return true;
 }
 
 function showStatus(message, kind = "info") {
@@ -329,6 +397,7 @@ function previewImage(event, categoryId) {
         const imgElement = document.getElementById(`img-${categoryId}`);
         const placeholderElement = document.getElementById(`placeholder-${categoryId}`);
 
+        imgElement.dataset.fallbackUrls = "[]";
         imgElement.src = e.target.result;
         imgElement.classList.remove("hidden");
         placeholderElement.classList.add("hidden");
@@ -565,8 +634,17 @@ function applyCardToSlot(categoryId, card) {
     const imgElement = document.getElementById(`img-${categoryId}`);
     const placeholderElement = document.getElementById(`placeholder-${categoryId}`);
     const input = document.getElementById(`upload-${categoryId}`);
+    const imageCandidates = getCardImageCandidates(card);
 
-    imgElement.src = card.card_images[0].image_url;
+    if (!imageCandidates.length) {
+        imgElement.src = "";
+        imgElement.alt = card?.name || "Card image unavailable";
+        imgElement.classList.add("hidden");
+        placeholderElement.classList.remove("hidden");
+        return;
+    }
+
+    setImageSourceWithFallback(imgElement, imageCandidates);
     imgElement.alt = card.name;
     imgElement.classList.remove("hidden");
     placeholderElement.classList.add("hidden");
@@ -577,6 +655,7 @@ async function randomizeCards() {
     if (isRandomizing || isExportingImage) return;
 
     isRandomizing = true;
+    hasShownImageLoadWarning = false;
     const button = document.getElementById("randomize-btn");
     const originalText = button.innerHTML;
 
@@ -697,6 +776,7 @@ function resetAll() {
         input.value = "";
     });
 
+    hasShownImageLoadWarning = false;
     setMode("manual");
     hideStatus();
 }
