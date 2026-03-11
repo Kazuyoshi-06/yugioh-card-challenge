@@ -197,7 +197,7 @@ function buildGrid() {
                         src=""
                         alt="${cat.manualTitle}"
                         class="card-image absolute inset-0 w-full h-full object-cover hidden rounded-xl p-1"
-                        crossorigin="anonymous"
+                        referrerpolicy="no-referrer"
                     />
 
                     <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
